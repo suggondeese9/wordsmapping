@@ -1,0 +1,4 @@
+bird
+duck
+chair
+tail
