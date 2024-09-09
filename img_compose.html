@@ -18,7 +18,7 @@
     };
 
     // Fetch words from URL or use default
-    fetch('http://wordssource/words.txt')
+    fetch('https://raw.githubusercontent.com/suggondeese9/wordsmapping/main/words.txt')
       .then(response => response.text())
       .then(data => {
         words = data.split('\n').map(word => word.trim()).filter(word => word.length > 0);
