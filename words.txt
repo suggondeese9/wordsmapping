@@ -1,4 +1,37 @@
-bird
-duck
-chair
-tail
+B0
+B1 CxJ
+B2 BxxJ
+B3 BxxJTC
+B4 BxxJWS
+
+D0
+D1 xT
+
+M0
+M1 MxxG
+
+F0
+F1 CxS
+F2 BxxS
+
+C0 CxB
+C1 CxT
+C2 CxF
+C3 CxM
+
+G0
+G1 FxV
+
+F0
+F1 DxxY
+F2 DxxO
+
+S0
+S3 SxxxT
+
+K0 LxK
+K1 DxK
+
+E0
+E1 GxE
+E2 PxE
