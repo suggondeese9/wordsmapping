@@ -1,135 +1,153 @@
 <html><body>
 <div>
-  <label id="bitmask_label"></label>
-  <form id="words_form"></form>
-  <button id="get_image_button">Get the Image</button>
-  <canvas id="image_canvas" width="400" height="200"></canvas>
-  <label id="uploadResult">nothing here</label>
-  <button id="upload_button" style="display:none;">Upload</button>
+  <label id="result_1"></label>
   <script>
-    let words = [];
-    let bitmask = 0;
-    const defaultWords = ['bird', 'duck', 'monkey', 'turtle'];
-    const mapping = {
-      '0000': 'https://imagesource/img13.jpg',
-      '0001': 'https://imagesource/img12.jpg',
-      '0010': 'https://imagesource/img34.jpg',
-      // Add more mappings as needed
-    };
-
-    // Fetch words from URL or use default
-    fetch('https://raw.githubusercontent.com/suggondeese9/wordsmapping/main/words.txt')
-      .then(response => response.text())
-      .then(data => {
-        words = data.split('\n').map(word => word.trim()).filter(word => word.length > 0);
-        createForm();
-      })
-      .catch(() => {
-        words = defaultWords;
-        createForm();
-      });
-
-    function createForm() {
-      const form = document.getElementById('words_form');
-      form.innerHTML = '';
-      words.forEach((word, index) => {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `word_${index}`;
-        checkbox.addEventListener('change', updateBitmask);
-        const label = document.createElement('label');
-        label.htmlFor = `word_${index}`;
-        label.textContent = word;
-        form.appendChild(checkbox);
-        form.appendChild(label);
-        form.appendChild(document.createElement('br'));
-      });
-      updateBitmask();
+    async function fetchWords() {
+      const response = await fetch('https://raw.githubusercontent.com/suggondeese9/wordsmapping/main/words.txt');
+      const text = await response.text();
+      return text;
     }
 
+    function parseWords(text) {
+      const lines = text.split('\n');
+      const groups = {};
 
-    function uploadImage(canvasName, uploadResultName) {
-      const canvas = document.getElementById(canvasName);
-      const dataURL = canvas.toDataURL("image/jpeg").split(',')[1]; // Get base64 part of the data URL
-      const apiKey = '...'
-      const formData = new FormData();
-      formData.append('image', dataURL);
-      fetch(`https://api.imgbb.com/1/upload?expiration=600&key=${apiKey}`, {
-         method: 'POST',
-         body: formData 
-      })
-     .then(response => response.json())
-     .then(data => {
-         if (data.success) {
-              document.getElementById(uploadResultName).textContent = `Image uploaded successfully: ${data.data.url}`;
-              document.getElementById(canvasName).src = data.data.url;
-              document.getElementById(canvasName).style.display = "block";
-         } else {
-              document.getElementById(uploadResultName).textContent = 'Image upload failed.';
-         }
-     })
-     .catch(error => {
-         document.getElementById(uploadResultName).textContent = 'Error: ' + error.message;
-      });
-    }                     
-
-
-    function updateBitmask() {
-      bitmask = 0;
-      words.forEach((word, index) => {
-        const checkbox = document.getElementById(`word_${index}`);
-        if (checkbox.checked) {
-          bitmask |= (1 << index);
+      lines.forEach(line => {
+        const [key, value] = line.split(' ');
+        if (key) {
+          const group = key[0];
+          if (!groups[group]) {
+            groups[group] = [];
+          }
+          groups[group].push({ key, value });
         }
       });
-      document.getElementById('bitmask_label').textContent = bitmask.toString(2).padStart(words.length, '0');
+
+      return groups;
     }
 
-    document.getElementById('get_image_button').addEventListener('click', () => {
-      const bitmaskString = bitmask.toString(2).padStart(words.length, '0');
-      const imageUrl = mapping[bitmaskString];
-      if (imageUrl) {
-        fetch(imageUrl)
-          .then(response => {
-            if (response.ok) {
-              return response.blob();
-            } else {
-              throw new Error('Image not found');
+    function createForm(groups) {
+      const form = document.createElement('form');
+
+      Object.keys(groups).forEach(group => {
+        const fieldset = document.createElement('fieldset');
+        const legend = document.createElement('legend');
+        legend.textContent = `Group ${group}`;
+        fieldset.appendChild(legend);
+
+        const groupItems = groups[group];
+        const hasEmptyValue = groupItems.some(item => !item.value);
+        fieldset.hasEmptyValue = '';
+
+        groupItems.forEach((item, index) => {
+          if (item.value) {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = `group_${group}`;
+            checkbox.value = item.key;
+
+            if (!hasEmptyValue && index === 0) {
+              checkbox.checked = true;
             }
-          })
-          .then(blob => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.getElementById('image_canvas');
-              const ctx = canvas.getContext('2d');
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              document.getElementById('upload_button').style.display = 'none';
+            checkbox.onclick = function() {
+              const checkboxes = document.querySelectorAll(`input[name="group_${group}"]`);
+              if (hasEmptyValue) {
+                // Allow at most one checkbox to be checked
+                checkboxes.forEach(cb => {
+                  if (cb !== this) cb.checked = false;
+                });
+              } else {
+                // Ensure exactly one checkbox is checked
+                if (!this.checked) {
+                  this.checked = true;
+                } else {
+                  checkboxes.forEach(cb => {
+                    if (cb !== this) cb.checked = false;
+                  });
+                }
+              }
             };
-            img.src = URL.createObjectURL(blob);
-          })
-          .catch(() => {
-            drawSelectedWords();
-          });
-      } else {
-        drawSelectedWords();
-      }
-    });
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(item.value));
+            fieldset.appendChild(label);
+            fieldset.appendChild(document.createElement('br'));
+          } else {
+            fieldset.hasEmptyValue = item.key;
+          }
+        });
 
-    function drawSelectedWords() {
-      const selectedWords = words.filter((word, index) => (bitmask & (1 << index)) !== 0).join(' ');
-      const canvas = document.getElementById('image_canvas');
+        form.appendChild(fieldset);
+      });
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Get Image';
+      button.onclick = fetchImage;
+      form.appendChild(button);
+      document.getElementById('result_1').appendChild(form);
+
+      const img = document.createElement('img');
+      img.id = 'img';
+      img.width = 30;
+      img.height = 30;
+      const canvas = document.createElement('canvas');
+      canvas.width = 30;
+      canvas.height = 30;
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'black';
-      ctx.font = '20px Arial';
-      ctx.fillText(selectedWords, 10, 50);
-      document.getElementById('upload_button').style.display = 'block';
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(0, 0, 30, 30);
+      img.src = canvas.toDataURL();
+      document.getElementById('result_1').appendChild(img);
+
+      const label = document.createElement('label');
+      label.id = 'url_str';
+      label.textContent = 'URL: ';
+      document.getElementById('result_1').appendChild(label);
     }
 
-    document.getElementById('upload_button').addEventListener('click', () => {
-      uploadImage('image_canvas', 'uploadResult')
-    });
+    function getName() {
+      const groups = document.querySelectorAll('fieldset');
+      let name = '';
+
+      groups.forEach(group => {
+        const checkboxes = group.querySelectorAll('input[type="checkbox"]');
+        let selectedKey = '';
+
+        checkboxes.forEach(checkbox => {
+          if (checkbox.checked) {
+            selectedKey = checkbox.value;
+          }
+        });
+
+        if (!selectedKey) {
+          // If no checkbox is selected, find the key with an empty value
+          const groupName = checkboxes[0].name.split('_')[1];
+          const groupItems = Array.from(checkboxes).map(cb => cb.value);
+          const emptyKey = group.hasEmptyValue;
+          selectedKey = emptyKey || groupItems[0];
+        }
+
+        name += selectedKey;
+      });
+
+      return name;
+    }
+
+    async function fetchImage() {
+      const name = getName();
+      const imageUrl = `https://raw.githubusercontent.com/suggondeese9/wordsmapping/main/imgs/${name}.jpg`;
+      document.getElementById('url_str').textContent = `URL: ${imageUrl}`;
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const img = document.getElementById('img');
+      img.src = URL.createObjectURL(blob);
+    }
+
+    fetchWords()
+      .then(parseWords)
+      .then(createForm)
+      .catch(error => console.error('Error fetching or parsing words:', error));
   </script>
 </div>
 </body></html>
