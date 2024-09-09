@@ -1,0 +1,135 @@
+<html><body>
+<div>
+  <label id="bitmask_label"></label>
+  <form id="words_form"></form>
+  <button id="get_image_button">Get the Image</button>
+  <canvas id="image_canvas" width="400" height="200"></canvas>
+  <label id="uploadResult">nothing here</label>
+  <button id="upload_button" style="display:none;">Upload</button>
+  <script>
+    let words = [];
+    let bitmask = 0;
+    const defaultWords = ['bird', 'duck', 'monkey', 'turtle'];
+    const mapping = {
+      '0000': 'https://imagesource/img13.jpg',
+      '0001': 'https://imagesource/img12.jpg',
+      '0010': 'https://imagesource/img34.jpg',
+      // Add more mappings as needed
+    };
+
+    // Fetch words from URL or use default
+    fetch('http://wordssource/words.txt')
+      .then(response => response.text())
+      .then(data => {
+        words = data.split('\n').map(word => word.trim()).filter(word => word.length > 0);
+        createForm();
+      })
+      .catch(() => {
+        words = defaultWords;
+        createForm();
+      });
+
+    function createForm() {
+      const form = document.getElementById('words_form');
+      form.innerHTML = '';
+      words.forEach((word, index) => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `word_${index}`;
+        checkbox.addEventListener('change', updateBitmask);
+        const label = document.createElement('label');
+        label.htmlFor = `word_${index}`;
+        label.textContent = word;
+        form.appendChild(checkbox);
+        form.appendChild(label);
+        form.appendChild(document.createElement('br'));
+      });
+      updateBitmask();
+    }
+
+
+    function uploadImage(canvasName, uploadResultName) {
+      const canvas = document.getElementById(canvasName);
+      const dataURL = canvas.toDataURL("image/jpeg").split(',')[1]; // Get base64 part of the data URL
+      const apiKey = '...'
+      const formData = new FormData();
+      formData.append('image', dataURL);
+      fetch(`https://api.imgbb.com/1/upload?expiration=600&key=${apiKey}`, {
+         method: 'POST',
+         body: formData 
+      })
+     .then(response => response.json())
+     .then(data => {
+         if (data.success) {
+              document.getElementById(uploadResultName).textContent = `Image uploaded successfully: ${data.data.url}`;
+              document.getElementById(canvasName).src = data.data.url;
+              document.getElementById(canvasName).style.display = "block";
+         } else {
+              document.getElementById(uploadResultName).textContent = 'Image upload failed.';
+         }
+     })
+     .catch(error => {
+         document.getElementById(uploadResultName).textContent = 'Error: ' + error.message;
+      });
+    }                     
+
+
+    function updateBitmask() {
+      bitmask = 0;
+      words.forEach((word, index) => {
+        const checkbox = document.getElementById(`word_${index}`);
+        if (checkbox.checked) {
+          bitmask |= (1 << index);
+        }
+      });
+      document.getElementById('bitmask_label').textContent = bitmask.toString(2).padStart(words.length, '0');
+    }
+
+    document.getElementById('get_image_button').addEventListener('click', () => {
+      const bitmaskString = bitmask.toString(2).padStart(words.length, '0');
+      const imageUrl = mapping[bitmaskString];
+      if (imageUrl) {
+        fetch(imageUrl)
+          .then(response => {
+            if (response.ok) {
+              return response.blob();
+            } else {
+              throw new Error('Image not found');
+            }
+          })
+          .then(blob => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.getElementById('image_canvas');
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              document.getElementById('upload_button').style.display = 'none';
+            };
+            img.src = URL.createObjectURL(blob);
+          })
+          .catch(() => {
+            drawSelectedWords();
+          });
+      } else {
+        drawSelectedWords();
+      }
+    });
+
+    function drawSelectedWords() {
+      const selectedWords = words.filter((word, index) => (bitmask & (1 << index)) !== 0).join(' ');
+      const canvas = document.getElementById('image_canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.font = '20px Arial';
+      ctx.fillText(selectedWords, 10, 50);
+      document.getElementById('upload_button').style.display = 'block';
+    }
+
+    document.getElementById('upload_button').addEventListener('click', () => {
+      uploadImage('image_canvas', 'uploadResult')
+    });
+  </script>
+</div>
+</body></html>
