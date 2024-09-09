@@ -17,8 +17,9 @@ filename = sys.argv[1]
 input_string = sys.argv[2]
 
 # Create an image with white background
-width, height = 5*len(input_string), 30
+width, height = 15*len(input_string), 30
 image = Image.new('RGB', (width, height), color = (255, 255, 255))
+
 
 # Initialize ImageDraw
 draw = ImageDraw.Draw(image)
