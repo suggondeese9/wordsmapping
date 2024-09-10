@@ -86,7 +86,7 @@ for x in words:
         tree[key]=[]
     tree[key].append([x[0], word] )
 
-with ThreadPoolExecutor(max_workers=5) as executor:
+with ThreadPoolExecutor(max_workers=8) as executor:
     futures = []
     for bm, txt, keys in generate_bitmasks(tree):
         futures.append(executor.submit(process_item, bm, txt, keys, generate))
