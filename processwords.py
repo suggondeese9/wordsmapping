@@ -2,15 +2,22 @@
 import sys
 import os
 from itertools import permutations, product, chain
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import subprocess
 
 # Function to run a shell command
 def run_shell_command(command):
-    # Run the command and capture the output
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    # Return the output and error (if any)
-    return result.stdout, result.stderr
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = process.communicate()
+    return output.decode(), error.decode()
+
+def process_item(bm, txt, keys, generate):
+    print(bm, keys, txt)
+    if not generate:
+        return None, None
+    command = f"./genimg.py {keys}.jpg \"{txt}\""  # Replace with your shell command
+    return run_shell_command(command)
 
 def generate_bitmasks(dictionary):
     # Create a list of lists where each sublist contains the bit positions for each key
@@ -79,16 +86,14 @@ for x in words:
         tree[key]=[]
     tree[key].append([x[0], word] )
 
-
-for bm,txt,keys in generate_bitmasks(tree):
-   print(bm, keys, txt)
-
-   if generate == False:
-       continue
-
-   command = f"./genimg.py {keys}.jpg \"{txt}\""  # Replace with your shell command
-   output, error = run_shell_command(command)
-   if len(output)>0:
-       print("Output:",output)
-   if len(error)>0:
-       print("ERROR:", error)
+with ThreadPoolExecutor(max_workers=5) as executor:
+    futures = []
+    for bm, txt, keys in generate_bitmasks(tree):
+        futures.append(executor.submit(process_item, bm, txt, keys, generate))
+        
+    for future in as_completed(futures):
+        output, error = future.result()
+        if output:
+            print("Output:", output)
+        if error:
+            print("ERROR:", error)
