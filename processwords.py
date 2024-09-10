@@ -58,6 +58,9 @@ if len(sys.argv) < 2:
 
 # Input string from command line arguments
 filename = sys.argv[1]
+generate=True
+if '-nogen' in sys.argv:
+    generate=False
 
 # Read the file 'words.txt' and sort the words alphabetically, then print the list
 
@@ -79,6 +82,9 @@ for x in words:
 
 for bm,txt,keys in generate_bitmasks(tree):
    print(bm, keys, txt)
+
+   if generate == False:
+       continue
 
    command = f"./genimg.py {keys}.jpg \"{txt}\""  # Replace with your shell command
    output, error = run_shell_command(command)
